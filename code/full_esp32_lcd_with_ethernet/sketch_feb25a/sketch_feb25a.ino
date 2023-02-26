@@ -37,32 +37,45 @@ PubSubClient psClient(client);
 DynamicJsonDocument doc(1024);
 
 void connect() {
-
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Connecting...");
   Serial.println("Connecting...");
 
-  if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-    Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
-    while (true) {
-      delay(1);  // do nothing, no point running without Ethernet hardware
-    }
+  while (Ethernet.hardwareStatus() == EthernetNoHardware) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("FailedToConnect");
+    lcd.setCursor(0, 1);
+    lcd.print(Ethernet.hardwareStatus());
+
+    Serial.println("Ethernet shield was not found.");
+    delay(2000);
   }
 
+  while (Ethernet.linkStatus() == LinkOFF) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("FailedToConnect");
+    lcd.setCursor(0, 1);
+    lcd.print(Ethernet.hardwareStatus());
 
-  Serial.println("Eth being mac...");
+    Serial.println("Ethernet cable is not connected.");
+    delay(1000);
+  }
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Connecting...");
+
+  Serial.println("Eth begin DHCP...");
+
   if (Ethernet.begin(mac)) {
     lcd.setCursor(0, 1);
     lcd.print("Ethernet D OK");
     Serial.println("Ethernet D Ok.");
   } else {
-    Serial.println("Eth being Static...");
-    if (Ethernet.linkStatus() == LinkOFF) {
-      Serial.println("Ethernet cable is not connected.");
-      delay(2000);
-    }
-
+    Serial.println("Eth begin Static...");
     IPAddress ip(IP);
     IPAddress dns(DNS);
     IPAddress gw(GATEWAY);
@@ -75,20 +88,10 @@ void connect() {
   }
 
   delay(5000);
+
+  Serial.println(Ethernet.linkStatus());
   printInfo();
   randomSeed(micros());
-
-  if (client.connect("google.com", 80)) {
-    Serial.println("Connected!");
-    // Make a HTTP request:
-    client.println("GET /get HTTP/1.1");
-    client.println("Host: httpbin.org");
-    client.println("Connection: close");
-    client.println();
-  } else {
-    // if you didn't get a connection to the server:
-    Serial.println("connection failed");
-  }
 }
 
 void loopInfo() {
@@ -96,6 +99,7 @@ void loopInfo() {
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print(title);
+
     if (strlen(msg) > 15) {
       scrollText(1, msg, 200, 16);
     } else {
@@ -106,6 +110,7 @@ void loopInfo() {
 }
 
 void scrollText(int row, String message, int delayTime, int lcdColumns) {
+
   for (int i = 0; i < lcdColumns; i++) {
     message = " " + message;
   }
@@ -136,11 +141,22 @@ void printInfo() {
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Topic received!");
+  Serial.println(topic);
+
   if (strstr(topic, "display")) {
     deserializeJson(doc, payload);
 
     title = doc["title"];
     msg = doc["msg"];
+  }
+
+  if (strstr(topic, "lighton")) {
+    lcd.backlight();
+  }
+
+  if (strstr(topic, "lightoff")) {
+    lcd.noBacklight();
   }
 }
 
@@ -158,8 +174,9 @@ void reconnectMqtt() {
     if (psClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASS)) {
       Serial.println("connected");
 
-      psClient.publish("outTopic", "hello world");
       psClient.subscribe("display");
+      psClient.subscribe("lighton");
+      psClient.subscribe("lightoff");
     } else {
       Serial.print("failed, rc=");
       Serial.print(psClient.state());
@@ -169,25 +186,26 @@ void reconnectMqtt() {
   }
 }
 
+
+
 void setup() {
   Serial.begin(115200);
 
-  delay(1000);
-
   lcd.init();
   Ethernet.init(5);
+
+  delay(1000);
+
   Serial.println("Eth init...");
+
   lcd.backlight();
+  lcd.noAutoscroll();
 
   connect();
   setupMqtt();
 }
 
 void loop() {
-  // if (!client.connected()) {
-  //   connect();
-  // }
-
   reconnectMqtt();
   psClient.loop();
   loopInfo();
