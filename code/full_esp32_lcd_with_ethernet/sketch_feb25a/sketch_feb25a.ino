@@ -45,9 +45,9 @@ void connect() {
   while (Ethernet.hardwareStatus() == EthernetNoHardware) {
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print("FailedToConnect");
+    lcd.print("ENoHardware");
     lcd.setCursor(0, 1);
-    lcd.print(Ethernet.hardwareStatus());
+    lcd.print("2 sec");
 
     Serial.println("Ethernet shield was not found.");
     delay(2000);
@@ -56,9 +56,9 @@ void connect() {
   while (Ethernet.linkStatus() == LinkOFF) {
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print("FailedToConnect");
+    lcd.print("ELinkOFF");
     lcd.setCursor(0, 1);
-    lcd.print(Ethernet.hardwareStatus());
+    lcd.print("1 sec");
 
     Serial.println("Ethernet cable is not connected.");
     delay(1000);
